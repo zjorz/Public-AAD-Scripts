@@ -69,13 +69,13 @@
 #>
 
 Param(
-	[string]$tenantFQDN, # IAMTEC.ONMICROSOFT.COM
+	[string]$tenantFQDN,
 
-	[string]$appClientID, # "3a1d5319-d212-4e0b-aadc-2be1d6a7f9fa"
+	[string]$appClientID,
 
-	[string]$appClientSecret, # ".gWRWLsU.ter~sqzA7oB-vbUK.4923G7r8"
+	[string]$appClientSecret,
 
-	[string]$pfxFilePath, # "D:\Storage\OneDrive - jorge@iamtec\Tech-Stuff\Techz_Env\IAMTEC Mgmt App - Managing Automatic AU Assignments\mgmt-Admin-Units-MSFT-Graph.pfx"
+	[string]$pfxFilePath,
 	[string]$pfxPassword,
 
 	[switch]$noPoshCmdUpdate
