@@ -345,17 +345,17 @@ $totalResultsAUs | ForEach-Object {
 						$totalObjectsProcessed++
 						$auObjectsProcessed++
 					} Catch {
-						Write-Host ""
-						Write-Host "   # === ERROR ===" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-						Write-Host ""
+						Write-Output ""
+						Write-Output "   # === ERROR ===" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+						Write-Output ""
 					}
 				}
 			}
@@ -428,17 +428,17 @@ $totalResultsAUs | ForEach-Object {
 						$totalObjectsProcessed++
 						$auObjectsProcessed++
 					} Catch {
-						Write-Host ""
-						Write-Host "   # === ERROR ===" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
-						Write-Host ""
-						Write-Host "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
-						Write-Host ""
+						Write-Output ""
+						Write-Output "   # === ERROR ===" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
+						Write-Output ""
+						Write-Output "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+						Write-Output ""
 					}
 				}
 			}
@@ -493,21 +493,21 @@ $totalResultsAUs | ForEach-Object {
 	$endDateTimeAUProcessing = Get-Date
 	$durationAUProcessing = (New-TimeSpan -Start $startDateTimeAUProcessing -End $endDateTimeAUProcessing).TotalMinutes
 	
-	Write-Host "   # Running Statistics For AU Processing..." -ForegroundColor Cyan
-	Write-Host "     - Start Date/Time............: $startDateTimeAUProcessing" -ForegroundColor White
-	Write-Host "     - End Date/Time..............: $endDateTimeAUProcessing" -ForegroundColor White
-	Write-Host "     - Duration (Minutes).........: $([math]::Round($durationAUProcessing, 2))" -ForegroundColor White
-	Write-Host "     - Objects Processed (AU).....: $auObjectsProcessed" -ForegroundColor White
-	Write-Host ""
+	Write-Output "   # Running Statistics For AU Processing..." -ForegroundColor Cyan
+	Write-Output "     - Start Date/Time............: $startDateTimeAUProcessing" -ForegroundColor White
+	Write-Output "     - End Date/Time..............: $endDateTimeAUProcessing" -ForegroundColor White
+	Write-Output "     - Duration (Minutes).........: $([math]::Round($durationAUProcessing, 2))" -ForegroundColor White
+	Write-Output "     - Objects Processed (AU).....: $auObjectsProcessed" -ForegroundColor White
+	Write-Output ""
 }
 
 # End Date/Time Script And Duration
 $endDateTimeScript = Get-Date
 $durationScript = (New-TimeSpan -Start $startDateTimeScript -End $endDateTimeScript).TotalMinutes
 
-Write-Host ""
-Write-Host "Running Statistics For SCRIPT..." -ForegroundColor Cyan
-Write-Host " > Start Date/Time................: $startDateTimeScript" -ForegroundColor White
-Write-Host " > End Date/Time..................: $endDateTimeScript" -ForegroundColor White
-Write-Host " > Duration (Minutes).............: $([math]::Round($durationScript, 2))" -ForegroundColor White
-Write-Host " > Objects Processed (AU).........: $totalObjectsProcessed" -ForegroundColor White
+Write-Output ""
+Write-Output "Running Statistics For SCRIPT..." -ForegroundColor Cyan
+Write-Output " > Start Date/Time................: $startDateTimeScript" -ForegroundColor White
+Write-Output " > End Date/Time..................: $endDateTimeScript" -ForegroundColor White
+Write-Output " > Duration (Minutes).............: $([math]::Round($durationScript, 2))" -ForegroundColor White
+Write-Output " > Objects Processed (AU).........: $totalObjectsProcessed" -ForegroundColor White
