@@ -216,6 +216,9 @@ Write-Output "                                                                  
 Write-Output "                                                                            *******************************************************************************"
 Write-Output ""
 
+# Start Date/Time Script
+$startDateTimeScript = Get-Date
+
 # Determine The Tenant ID
 $tenantID = retrieveTenantIDFromTenantFDQN -tenantFQDN $tenantFQDN
 If (!$([guid]::TryParse($tenantID, $([ref][guid]::Empty)))) {
@@ -262,6 +265,9 @@ Write-Output "Processing Memberships For Each Administrative Unit In The Azure A
 $totalObjectsProcessed = 0
 $totalResultsAUs | ForEach-Object {
 	$auObjectsProcessed = 0
+	
+	# Start Date/Time AU Processing
+	$startDateTimeAUProcessing = Get-Date
 	
 	# Let's Get And Refresh The Access Token
 	$jwtAssertion = $null
