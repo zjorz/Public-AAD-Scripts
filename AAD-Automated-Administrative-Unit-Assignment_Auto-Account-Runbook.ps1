@@ -16,9 +16,15 @@
 		- N.A.
 
 	CURRENT VERSION
-		v0.1, 2021-09-08 (UPDATE THE VERSION VARIABLE BELOW)
+		v0.3, 2021-09-14 (UPDATE THE VERSION VARIABLE BELOW)
 
 	RELEASE NOTES
+		v0.3, 2021-09-14, Jorge de Almeida Pinto [MVP-EMS]:
+			- Added object count to understand how much is being processed
+
+		v0.2, 2021-09-13, Jorge de Almeida Pinto [MVP-EMS]:
+			- Added some time stamps to the output to understand how long it is/was running
+
 		v0.1, 2021-09-08, Jorge de Almeida Pinto [MVP-EMS]:
 			- Initial version of the script
 #>
@@ -40,7 +46,7 @@
 	* A Configured Certificate (Public) In The Registered Application
 	* Automation Account In Azure AD
 	* A Configured Certificate (Private) In The Automation Account
-	* Variables defined for 'tenantFQDN' and ''
+	* Variables defined for 'tenantFQDN' and 'appClientID'
 #>
 
 ### FUNCTION: Retrieve The Tenant ID From The Tenant FQDN
@@ -184,7 +190,7 @@ Function generateJWTAssertionForCertAuthN () {
 }
 
 ### Version Of Script
-$version = "v0.1, 2021-09-08"
+$version = "v0.3, 2021-09-14"
 
 ### Definition Of Some Constants
 $msftGraphFQDN = "graph.microsoft.com" # FQDN For Microsoft Graph
@@ -253,7 +259,10 @@ $totalResultsAUs | ForEach-Object {
 
 Write-Output ""
 Write-Output "Processing Memberships For Each Administrative Unit In The Azure AD Tenant '$tenantFQDN'..."
+$totalObjectsProcessed = 0
 $totalResultsAUs | ForEach-Object {
+	$auObjectsProcessed = 0
+	
 	# Let's Get And Refresh The Access Token
 	$jwtAssertion = $null
 	$jwtAssertion = generateJWTAssertionForCertAuthN -tenantID $tenantID -appClientID $appClientID -x509PrivateKeyAndCertificate $x509PrivateKeyAndCertificate
@@ -325,7 +334,23 @@ $totalResultsAUs | ForEach-Object {
 				Else {
 					Write-Output "     - Removing Assignment | User Object '$userMemberUserPrincipalName' ($userMemberObjectID) From AU '$auDisplayName' ($auObjectID)..."
 					$endpointURLAUMembershipDel = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/$userMemberObjectID/`$ref"
-					Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
+					Try {
+						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
+						$totalObjectsProcessed++
+						$auObjectsProcessed++
+					} Catch {
+						Write-Host ""
+						Write-Host "   # === ERROR ===" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+						Write-Host ""
+					}
 				}
 			}
 
@@ -346,8 +371,7 @@ $totalResultsAUs | ForEach-Object {
 "@
 					Try {
 						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipAdd -ContentType "application/json" -Method POST -Body $requestBody -ErrorAction Stop | Out-Null
-					}
-					Catch {
+					} Catch {
 						Write-Output ""
 						Write-Output "   # === ERROR ==="
 						Write-Output ""
@@ -360,8 +384,7 @@ $totalResultsAUs | ForEach-Object {
 						Write-Output "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)"
 						Write-Output ""
 					}
-				}
-				Else {
+				} Else {
 					Write-Output "     - Existing Assignment | User Object '$userUserPrincipalName' ($userObjectID) Already In AU '$auDisplayName' ($auObjectID)..."
 				}
 			}
@@ -391,11 +414,26 @@ $totalResultsAUs | ForEach-Object {
 				$groupMemberDisplayName = $groupMemberObject.DisplayName
 				If ($totalResultsQueriedGroups.id -contains $groupMemberObjectID) {
 					$totalResultsQueriedGroups = $totalResultsQueriedGroups | Where-Object { $_.id -ne $groupMemberObjectID }
-				}
-				Else {
+				} Else {
 					Write-Output "     - Removing Assignment | Group Object '$groupMemberDisplayName' ($groupMemberObjectID) From AU '$auDisplayName' ($auObjectID)..."
 					$endpointURLAUMembershipDel = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/$groupMemberObjectID/`$ref"
-					Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
+					Try {
+						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
+						$totalObjectsProcessed++
+						$auObjectsProcessed++
+					} Catch {
+						Write-Host ""
+						Write-Host "   # === ERROR ===" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Type......: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Message...: $($_.Exception.Message)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Exception Stck Trace: $($_.Exception.StackTrace)" -ForegroundColor Red
+						Write-Host ""
+						Write-Host "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+						Write-Host ""
+					}
 				}
 			}
 
@@ -419,8 +457,9 @@ $totalResultsAUs | ForEach-Object {
 "@
 					Try {
 						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipAdd -ContentType "application/json" -Method POST -Body $requestBody -ErrorAction Stop | Out-Null
-					}
-					Catch {
+						$totalObjectsProcessed++
+						$auObjectsProcessed++
+					} Catch {
 						Write-Output ""
 						Write-Output "   # === ERROR ==="
 						Write-Output ""
@@ -433,16 +472,36 @@ $totalResultsAUs | ForEach-Object {
 						Write-Output "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)"
 						Write-Output ""
 					}
-				}
-				Else {
+				} Else {
 					Write-Output "     - Existing Assignment | Group Object '$groupDisplayName' ($groupObjectID) Already In AU '$auDisplayName' ($auObjectID)..."
 				}
 			}
 		}
 		Write-Output ""
-	}
- Else {
+	} Else {
 		Write-Output " > SKIPPING Administrative Unit: $auObjectID | $auDisplayName"
 		Write-Output ""
 	}
+	
+	# End Date/Time AU Processing And Duration
+	$endDateTimeAUProcessing = Get-Date
+	$durationAUProcessing = (New-TimeSpan -Start $startDateTimeAUProcessing -End $endDateTimeAUProcessing).TotalMinutes
+	
+	Write-Host "   # Running Statistics For AU Processing..." -ForegroundColor Cyan
+	Write-Host "     - Start Date/Time............: $startDateTimeAUProcessing" -ForegroundColor White
+	Write-Host "     - End Date/Time..............: $endDateTimeAUProcessing" -ForegroundColor White
+	Write-Host "     - Duration (Minutes).........: $([math]::Round($durationAUProcessing, 2))" -ForegroundColor White
+	Write-Host "     - Objects Processed (AU).....: $auObjectsProcessed" -ForegroundColor White
+	Write-Host ""
 }
+
+# End Date/Time Script And Duration
+$endDateTimeScript = Get-Date
+$durationScript = (New-TimeSpan -Start $startDateTimeScript -End $endDateTimeScript).TotalMinutes
+
+Write-Host ""
+Write-Host "Running Statistics For SCRIPT..." -ForegroundColor Cyan
+Write-Host " > Start Date/Time................: $startDateTimeScript" -ForegroundColor White
+Write-Host " > End Date/Time..................: $endDateTimeScript" -ForegroundColor White
+Write-Host " > Duration (Minutes).............: $([math]::Round($durationScript, 2))" -ForegroundColor White
+Write-Host " > Objects Processed (AU).........: $totalObjectsProcessed" -ForegroundColor White
