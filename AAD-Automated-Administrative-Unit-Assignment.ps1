@@ -16,9 +16,15 @@
 		- N.A.
 
 	CURRENT VERSION
-		v0.3, 2021-09-14 (UPDATE THE VERSION VARIABLE BELOW)
+		v0.5, 2021-10-12 (UPDATE THE VERSION VARIABLE BELOW)
 
 	RELEASE NOTES
+		v0.5, 2021-10-12, Jorge de Almeida Pinto [MVP-EMS]:
+			- Updated code for speed improvements. In tests twice as fast when no changes applied to an AU
+
+		v0.4, 2021-09-16, Jorge de Almeida Pinto [MVP-EMS]:
+			- small bug fixes and improvements
+
 		v0.3, 2021-09-14, Jorge de Almeida Pinto [MVP-EMS]:
 			- Added object count to understand how much is being processed
 
@@ -237,7 +243,7 @@ Function generateJWTAssertionForCertAuthN () {
 }
 
 ### Version Of Script
-$version = "v0.3, 2021-09-14"
+$version = "v0.5, 2021-10-12"
 
 ### Clear The Screen
 If (!$noPoshCmdUpdate) {
@@ -335,25 +341,29 @@ $endpointURLAUs = "https://graph.microsoft.com/beta/administrativeunits`?`$selec
 $queryPageResultAUs = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUs -Method Get
 $totalResultsAUs += $queryPageResultAUs.value
 $nextResultPage = $queryPageResultAUs.'@odata.nextLink'
-$i = 1
 While ($null -ne $nextResultPage) {
-	$i++
+	$queryPageResultAUs = $null
 	$queryPageResultAUs = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $nextResultPage -Method Get
 	$nextResultPage = $queryPageResultAUs."@odata.nextLink"
 	$totalResultsAUs += $queryPageResultAUs.value
 }
 #$totalResultsAUs
+$auNr = 0
+$totalResultsAUsCount = ($totalResultsAUs | Measure-Object).Count
 $totalResultsAUs | ForEach-Object {
+	$auNr++
 	$auObject = $_
 	$auObjectID = $auObject.id
 	$auDisplayName = $auObject.DisplayName
-	Write-Host " > Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Yellow
+	Write-Host " > $($auNr.ToString().PadLeft($totalResultsAUsCount.ToString().Length, '0')) Of $totalResultsAUsCount - Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Processing Memberships For Each Administrative Unit In The Azure AD Tenant '$tenantFQDN'..." -ForegroundColor Cyan
 $totalObjectsProcessed = 0
+$auNr = 0
 $totalResultsAUs | ForEach-Object {
+	$auNr++
 	$auObjectsProcessed = 0
 	
 	# Start Date/Time AU Processing
@@ -381,26 +391,32 @@ $totalResultsAUs | ForEach-Object {
 	If ($auDescription -like "*|*") {
 		$userFilter = $auDescription.Split("|")[1].Replace("filter:user=", "")
 		$groupFilter = $auDescription.Split("|")[2].Replace("filter:group=", "")
-		Write-Host " > Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Magenta
+		Write-Host " > $($auNr.ToString().PadLeft($totalResultsAUsCount.ToString().Length, '0')) Of $totalResultsAUsCount - Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Magenta
 		Write-Host "   # AU User Filter.......................: $userFilter" -ForegroundColor Yellow
 		Write-Host "   # AU Group Filter......................: $groupFilter" -ForegroundColor Yellow
 
 		If (($userFilter -ne "NA" -And $userFilter -ne "" -And $userFilter -ne $null) -Or ($groupFilter -ne "NA" -And $groupFilter -ne "" -And $groupFilter -ne $null)) {
 			Write-Host "   # Getting List Of User/Groups Objects Already Assigned To This AU '$auDisplayName'..." -ForegroundColor Yellow
 			$endpointURLAUMembers = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/"
-			$totalResultsMemberUsers = @()
-			$totalResultsMemberGroups = @()
+			#$totalResultsMemberUsers = @()
+			$totalResultsMemberUsers = [System.Collections.ArrayList]@()
+			#$totalResultsMemberGroups = @()
+			$totalResultsMemberGroups = [System.Collections.ArrayList]@()
 			$queryPageResultMembers = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembers -Method Get
-			$totalResultsMemberUsers += $queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.user" }
-			$totalResultsMemberGroups += $queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.group" }
+			$totalResultsMemberUsers += $queryPageResultMembers.value | Where-Object {$_."@odata.type" -eq "#microsoft.graph.user"}
+			#$queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.user" } | %{$totalResultsMemberUsers.Add($_) | Out-Null}
+			$totalResultsMemberGroups += $queryPageResultMembers.value | Where-Object {$_."@odata.type" -eq "#microsoft.graph.group"}
+			#$queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.group" } | %{$totalResultsMemberGroups.Add($_) | Out-Null}
 			$nextResultPage = $queryPageResultMembers.'@odata.nextLink'
-			$i = 1
+			#$i = 1
 			While ($null -ne $nextResultPage) {
-				$i++
+				#$i++
 				$queryPageResultMembers = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $nextResultPage -Method Get
 				$nextResultPage = $queryPageResultMembers."@odata.nextLink"
 				$totalResultsMemberUsers += $queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.user" }
+				#$queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.user" } | %{$totalResultsMemberUsers.Add($_) | Out-Null}
 				$totalResultsMemberGroups += $queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.group" }
+				#$queryPageResultMembers.value | Where-Object { $_."@odata.type" -eq "#microsoft.graph.group" } | %{$totalResultsMemberGroups.Add($_) | Out-Null}
 			}
 			#$totalResultsMemberUsers
 			#$totalResultsMemberGroups
@@ -409,21 +425,24 @@ $totalResultsAUs | ForEach-Object {
 		If ($userFilter -ne "NA" -And $userFilter -ne "" -And $userFilter -ne $null) {
 			Write-Host "   # Getting List Of User Objects Matching The User Filter For The AU '$auDisplayName'..." -ForegroundColor Yellow
 			$endpointURLAUMembershipAdd = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/`$ref"
-			$totalResultsQueriedUsers = @()
+			#$totalResultsQueriedUsers = @()
+			$totalResultsQueriedUsers = [System.Collections.ArrayList]@()
 			$endpointURLUsers = "https://graph.microsoft.com/v1.0/users`?`$filter=$userFilter&`$select=id,displayName,userPrincipalName"
 			$queryPageResultUsers = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLUsers -Method Get
-			$totalResultsQueriedUsers += $queryPageResultUsers.value
+			$queryPageResultUsers.value | %{$totalResultsQueriedUsers.Add($_) | Out-Null}
 			$nextResultPage = $queryPageResultUsers.'@odata.nextLink'
-			$i = 1
+			#$i = 1
 			While ($null -ne $nextResultPage) {
-				$i++
+				#$i++
 				$queryPageResultUsers = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $nextResultPage -Method Get
 				$nextResultPage = $queryPageResultUsers."@odata.nextLink"
 				$totalResultsQueriedUsers += $queryPageResultUsers.value
+				#$queryPageResultUsers.value | %{$totalResultsQueriedUsers.Add($_) | Out-Null}
 			}
 			#$totalResultsQueriedUsers
 
 			Write-Host "   # Determining User Objects To Remove Assignment For The AU '$auDisplayName'..." -ForegroundColor Yellow
+			$delUserNr = 0
 			$totalResultsMemberUsers | ForEach-Object {
 				$userMemberObject = $_
 				$userMemberObjectID = $userMemberObject.id
@@ -431,8 +450,10 @@ $totalResultsAUs | ForEach-Object {
 				$userMemberUserPrincipalName = $userMemberObject.userPrincipalName
 				If ($totalResultsQueriedUsers.id -contains $userMemberObjectID) {
 					$totalResultsQueriedUsers = $totalResultsQueriedUsers | Where-Object { $_.id -ne $userMemberObjectID }
+					#$totalResultsQueriedUsers.Remove($userMemberObject)
 				} Else {
-					Write-Host "     - Removing Assignment | User Object '$userMemberUserPrincipalName' ($userMemberObjectID) From AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
+					$delUserNr++
+					Write-Host "     - $delUserNr - Removing Assignment | User Object '$userMemberUserPrincipalName' ($userMemberObjectID) From AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
 					$endpointURLAUMembershipDel = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/$userMemberObjectID/`$ref"
 					Try {
 						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
@@ -455,7 +476,10 @@ $totalResultsAUs | ForEach-Object {
 			}
 
 			Write-Host "   # Determining User Objects To Add Assignment For The AU '$auDisplayName'..." -ForegroundColor Yellow
+			$addUserNr = 0
+			$totalResultsQueriedUsersCount = ($totalResultsQueriedUsers | Measure-Object).Count
 			$totalResultsQueriedUsers | ForEach-Object {
+				$addUserNr++
 				$userObject = $_
 				$userObjectID = $userObject.id
 				#$userDisplayName = $userObject.DisplayName
@@ -463,14 +487,14 @@ $totalResultsAUs | ForEach-Object {
 				$endpointURLUserAUMembership = "https://graph.microsoft.com/v1.0/users/$userObjectID/memberOf/microsoft.graph.administrativeUnit"
 				$queryResultUserAUMembership = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLUserAUMembership -Method Get
 				If ($queryResultUserAUMembership.value.id -notcontains $auObjectID) {
-					Write-Host "     - Add Assignment | User Object '$userUserPrincipalName' ($userObjectID) To AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
+					Write-Host "     - $($addUserNr.ToString().PadLeft($totalResultsQueriedUsersCount.ToString().Length, '0')) Of $totalResultsQueriedUsersCount - Add Assignment | User Object '$userUserPrincipalName' ($userObjectID) To AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
 					$requestBody = @"
 {
 	"`@odata.id": "https://graph.microsoft.com/v1.0/users/$userObjectID"
 }
 "@
 					Try {
-						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipAdd -ContentType "application/json" -Method POST -Body $requestBody -ErrorAction Stop | Out-Null
+						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken"} -Uri $endpointURLAUMembershipAdd -ContentType "application/json" -Method POST -Body $requestBody -ErrorAction Stop | Out-Null
 						$totalObjectsProcessed++
 						$auObjectsProcessed++
 					} Catch {
@@ -486,30 +510,35 @@ $totalResultsAUs | ForEach-Object {
 						Write-Host "Error On Script Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
 						Write-Host ""
 					}
-				} Else {
-					Write-Host "     - Existing Assignment | User Object '$userUserPrincipalName' ($userObjectID) Already In AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
 				}
+				# Else {
+				#	Write-Host "     - Existing Assignment | User Object '$userUserPrincipalName' ($userObjectID) Already In AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
+				#}
 			}
 		}
 
 		If ($groupFilter -ne "NA" -And $groupFilter -ne "" -And $groupFilter -ne $null) {
 			Write-Host "   # Getting List Of Group Objects Matching The User Filter For The AU '$auDisplayName'..." -ForegroundColor Yellow
 			$endpointURLAUMembershipAdd = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/`$ref"
-			$totalResultsQueriedGroups = @()
+			#$totalResultsQueriedGroups = @()
+			$totalResultsQueriedGroups = [System.Collections.ArrayList]@()
 			$endpointURLGroups = "https://graph.microsoft.com/v1.0/groups`?`$filter=$groupFilter&`$select=id,displayName"
 			$queryPageResultGroups = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLGroups -Method Get
 			$totalResultsQueriedGroups += $queryPageResultGroups.value
+			#$queryPageResultGroups.value | %{$totalResultsQueriedGroups.Add($_) | Out-Null}
 			$nextResultPage = $queryPageResultGroups.'@odata.nextLink'
-			$i = 1
+			#$i = 1
 			While ($null -ne $nextResultPage) {
-				$i++
+				#$i++
 				$queryPageResultGroups = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $nextResultPage -Method Get
 				$nextResultPage = $queryPageResultGroups."@odata.nextLink"
 				$totalResultsQueriedGroups += $queryPageResultGroups.value
+				#$queryPageResultGroups.value | %{$totalResultsQueriedGroups.Add($_) | Out-Null}
 			}
 			#$totalResultsQueriedGroups
 
 			Write-Host "   # Determining Group Objects To Remove Assignment For The AU '$auDisplayName'..." -ForegroundColor Yellow
+			$delGroupNr = 0
 			$totalResultsMemberGroups | ForEach-Object {
 				$groupMemberObject = $_
 				$groupMemberObjectID = $groupMemberObject.id
@@ -517,7 +546,8 @@ $totalResultsAUs | ForEach-Object {
 				If ($totalResultsQueriedGroups.id -contains $groupMemberObjectID) {
 					$totalResultsQueriedGroups = $totalResultsQueriedGroups | Where-Object { $_.id -ne $groupMemberObjectID }
 				} Else {
-					Write-Host "     - Removing Assignment | Group Object '$groupMemberDisplayName' ($groupMemberObjectID) From AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
+					$delGroupNr++
+					Write-Host "     - $delGroupNr - Removing Assignment | Group Object '$groupMemberDisplayName' ($groupMemberObjectID) From AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
 					$endpointURLAUMembershipDel = "https://graph.microsoft.com/v1.0/directory/administrativeUnits/$auObjectID/members/$groupMemberObjectID/`$ref"
 					Try {
 						Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLAUMembershipDel -Method DELETE -ErrorAction Stop | Out-Null
@@ -540,7 +570,10 @@ $totalResultsAUs | ForEach-Object {
 			}
 
 			Write-Host "   # Determining Group Objects To Add Assignment For The AU '$auDisplayName'..." -ForegroundColor Yellow
+			$addGroupNr = 0
+			$totalResultsQueriedGroupsCount = ($totalResultsQueriedGroups | Measure-Object).Count
 			$totalResultsQueriedGroups | ForEach-Object {
+				$addGroupNr++
 				$groupObject = $_
 				$groupObjectID = $groupObject.id
 				$groupDisplayName = $groupObject.DisplayName
@@ -550,7 +583,7 @@ $totalResultsAUs | ForEach-Object {
 				$queryResultGroupAUMembership = Invoke-RestMethod -Headers @{Authorization = "$accessTokenType $accessToken" } -Uri $endpointURLGroupAUMembership -Method Get
 
 				If ($queryResultGroupAUMembership.value.id -notcontains $auObjectID) {
-					Write-Host "     - Add Assignment | Group Object '$groupDisplayName' ($groupObjectID) To AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
+					Write-Host "     - $($addGroupNr.ToString().PadLeft($totalResultsQueriedGroupsCount.ToString().Length, '0')) Of $totalResultsQueriedGroupsCount - Add Assignment | Group Object '$groupDisplayName' ($groupObjectID) To AU '$auDisplayName' ($auObjectID)..." -ForegroundColor White
 
 					$requestBody = @"
 {
@@ -581,7 +614,7 @@ $totalResultsAUs | ForEach-Object {
 		}
 		Write-Host ""
 	} Else {
-		Write-Host " > SKIPPING Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Magenta
+		Write-Host " > $($auNr.ToString().PadLeft($totalResultsAUsCount.ToString().Length, '0')) Of $totalResultsAUsCount - SKIPPING Administrative Unit: $auObjectID | $auDisplayName" -ForegroundColor Magenta
 		Write-Host ""
 	}
 	
@@ -606,4 +639,4 @@ Write-Host "Running Statistics For SCRIPT..." -ForegroundColor Cyan
 Write-Host " > Start Date/Time................: $startDateTimeScript" -ForegroundColor White
 Write-Host " > End Date/Time..................: $endDateTimeScript" -ForegroundColor White
 Write-Host " > Duration (Minutes).............: $([math]::Round($durationScript, 2))" -ForegroundColor White
-Write-Host " > Objects Processed (AU).........: $totalObjectsProcessed" -ForegroundColor White
+Write-Host " > Objects Processed (Total)......: $totalObjectsProcessed" -ForegroundColor White
